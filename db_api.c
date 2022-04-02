@@ -636,10 +636,7 @@ int dbFetchResult(DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcn
 						bind->buffer_length = (unsigned long)(param[i].buffer_length);
 						if (param[i].value_length) {
 							*param[i].value_length = 0;
-							if (sizeof(*(bind->length)) == sizeof(*(param[i].value_length)))
-								bind->length = (unsigned long*)(param[i].value_length);
-							else
-								bind->length = &param[i].mysql_value_length;
+							bind->length = &param[i].mysql_value_length;
 						}
 					}
 					else break;
@@ -654,12 +651,10 @@ int dbFetchResult(DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcn
 				case 0:
 				case MYSQL_DATA_TRUNCATED:
 				{
-					if (sizeof(*(param[0].value_length)) != sizeof(*(((MYSQL_BIND*)0)->length))) {
-						unsigned short i;
-						for (i = 0; i < paramcnt && i < stmt->mysql.result_field_count; ++i) {
-							if (param[i].value_length) {
-								*param[i].value_length = param[i].mysql_value_length;
-							}
+					unsigned short i;
+					for (i = 0; i < paramcnt && i < stmt->mysql.result_field_count; ++i) {
+						if (param[i].value_length) {
+							*param[i].value_length = param[i].mysql_value_length;
 						}
 					}
 					res = 1;
