@@ -24,19 +24,6 @@
 	#endif
 #endif
 
-#if defined(_WIN32) || defined(_WIN64)
-	#include <winsock2.h>
-	#include <windows.h>
-#endif
-
-#ifdef DB_ENABLE_MYSQL
-	#if defined(_WIN32) || defined(_WIN64)
-		#include <mysql.h>
-		#pragma comment(lib, "libmysql.lib")/* you need copy libmysql.dll to your exe path */
-	#else
-		#include <mysql/mysql.h>
-	#endif
-#endif
 #include <stddef.h>
 #include <time.h>
 
