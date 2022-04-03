@@ -675,6 +675,9 @@ int dbFetchResult(DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcn
 }
 
 void dbFreeResult(DBStmt_t* stmt) {
+	if (!stmt) {
+		return;
+	}
 	if (stmt->has_result_set) {
 		stmt->has_result_set = 0;
 		switch (stmt->type) {
