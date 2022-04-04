@@ -40,6 +40,8 @@ typedef struct DBHandle_t {
 	const char* url;
 	size_t url_strlen;
 	time_t last_active_timestamp_sec;
+	short auto_commit;
+	short trans_open;
 	struct DBStmt_t** stmts;
 	size_t stmt_cnt;
 	union {
@@ -167,6 +169,8 @@ DBHandle_t* dbCreateHandle(const char* dbtype) {
 	handle->url_strlen = 0;
 	handle->url = handle->user = handle->pwd = handle->ip = handle->db_name = NULL;
 	handle->error_msg = "";
+	handle->auto_commit = 0;
+	handle->trans_open = 0;
 	handle->stmts = NULL;
 	handle->stmt_cnt = 0;
 	switch (handle->type) {
@@ -325,6 +329,12 @@ const char* dbHandleErrorMessage(DBHandle_t* handle) {
 /* transaction */
 DB_RETURN dbEnableAutoCommit(DBHandle_t* handle, int bool_val) {
 	DB_RETURN res = DB_ERROR;
+	if (handle->auto_commit && bool_val) {
+		return DB_SUCCESS;
+	}
+	if (!handle->auto_commit && !bool_val) {
+		return DB_SUCCESS;
+	}
 	switch (handle->type) {
 		#ifdef DB_ENABLE_MYSQL
 		case DB_TYPE_MYSQL:
@@ -338,11 +348,17 @@ DB_RETURN dbEnableAutoCommit(DBHandle_t* handle, int bool_val) {
 		}
 		#endif
 	}
+	if (DB_SUCCESS == res) {
+		handle->auto_commit = bool_val;
+	}
 	return res;
 }
 
 DB_RETURN dbStartTransaction(DBHandle_t* handle) {
 	DB_RETURN res = DB_ERROR;
+	if (handle->trans_open) {
+		return DB_SUCCESS;
+	}
 	switch (handle->type) {
 		#ifdef DB_ENABLE_MYSQL
 		case DB_TYPE_MYSQL:
@@ -356,11 +372,17 @@ DB_RETURN dbStartTransaction(DBHandle_t* handle) {
 		}
 		#endif
 	}
+	if (DB_SUCCESS == res) {
+		handle->trans_open = 1;
+	}
 	return res;
 }
 
 DB_RETURN dbCommit(DBHandle_t* handle) {
 	DB_RETURN res = DB_ERROR;
+	if (!handle->trans_open) {
+		return DB_SUCCESS;
+	}
 	switch (handle->type) {
 		#ifdef DB_ENABLE_MYSQL
 		case DB_TYPE_MYSQL:
@@ -374,11 +396,17 @@ DB_RETURN dbCommit(DBHandle_t* handle) {
 		}
 		#endif
 	}
+	if (DB_SUCCESS == res) {
+		handle->trans_open = 0;
+	}
 	return res;
 }
 
 DB_RETURN dbRollback(DBHandle_t* handle) {
 	DB_RETURN res = DB_ERROR;
+	if (!handle->trans_open) {
+		return DB_SUCCESS;
+	}
 	switch (handle->type) {
 		#ifdef DB_ENABLE_MYSQL
 		case DB_TYPE_MYSQL:
@@ -391,6 +419,9 @@ DB_RETURN dbRollback(DBHandle_t* handle) {
 			break;
 		}
 		#endif
+	}
+	if (DB_SUCCESS == res) {
+		handle->trans_open = 0;
 	}
 	return res;
 }
