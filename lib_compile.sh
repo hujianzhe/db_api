@@ -4,6 +4,7 @@ SOURCE_C_FILE=`find . -name "*.c"`
 SOURCE_CPP_FILE=`find . -name "*.cpp"`
 MACRO="-D_REENTRANT -DDB_ENABLE_MYSQL"
 COMPILE_OPTION="-Wno-deprecated -Wno-parentheses -pthread"
+INCLUDE_PATH="-I/opt/homebrew/include/"
 
 COMPILER="gcc"
 if [ $COMPILER == "gcc" ];then
@@ -28,8 +29,8 @@ fi
 rm $OBJECT_FILE 2>/dev/null
 rm $TARGET 2>/dev/null
 #find ./ -type f -exec touch {} \;
-echo "$COMPILER -c $MACRO $COMPILE_OPTION" $SOURCE_C_FILE $SOURCE_CPP_FILE 
-$COMPILER -c $MACRO $COMPILE_OPTION $SOURCE_C_FILE $SOURCE_CPP_FILE
+echo "$COMPILER -c $MACRO $COMPILE_OPTION $INCLUDE_PATH" $SOURCE_C_FILE $SOURCE_CPP_FILE 
+$COMPILER -c $MACRO $COMPILE_OPTION $INCLUDE_PATH $SOURCE_C_FILE $SOURCE_CPP_FILE
 if [ "$?" != 0 ];then
 	OBJECT_FILE=`find . -name "*.o"`
 	rm $OBJECT_FILE 2>/dev/null

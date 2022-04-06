@@ -3,10 +3,13 @@ SOURCE_CPP_FILE += $(shell find . -name "*.cpp")
 
 TARGET_PATH += .
 COMPILE_OPTION := -fPIC -shared -Wno-deprecated -Wno-parentheses
+INCLUDE_PATH :=
 MACRO := -D_REENTRANT
 
-MYSQL_LINK := -L/usr/lib64/mysql -lmysqlclient
+MYSQL_INCLUDE := -I/opt/homebrew/include/
+MYSQL_LINK := -L/opt/homebrew/lib/ -lmysqlclient
 ifdef MYSQL_LINK
+INCLUDE_PATH += $(MYSQL_INCLUDE)
 MACRO += -DDB_ENABLE_MYSQL
 endif
 
@@ -23,7 +26,7 @@ RELEASE_TARGET := $(TARGET_PATH)/libDBApiDynamic.so
 all:
 
 debug:
-	$(COMPILER) $(MACRO) -D_DEBUG -g $(COMPILE_OPTION) $(SOURCE_C_FILE) $(SOURCE_CPP_FILE) -o $(DEBUG_TARGET) $(LINK)
+	$(COMPILER) $(MACRO) -D_DEBUG -g $(COMPILE_OPTION) $(INCLUDE_PATH) $(SOURCE_C_FILE) $(SOURCE_CPP_FILE) -o $(DEBUG_TARGET) $(LINK)
 
 release:
-	$(COMPILER) $(MACRO) -DNDEBUG -O1 $(COMPILE_OPTION) $(SOURCE_C_FILE) $(SOURCE_CPP_FILE) -o $(RELEASE_TARGET) $(LINK)
+	$(COMPILER) $(MACRO) -DNDEBUG -O1 $(COMPILE_OPTION) $(INCLUDE_PATH) $(SOURCE_C_FILE) $(SOURCE_CPP_FILE) -o $(RELEASE_TARGET) $(LINK)
