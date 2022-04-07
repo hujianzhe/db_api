@@ -277,6 +277,7 @@ DB_RETURN dbConnect(DBHandle_t* handle, int timeout_sec) {
 		#ifdef DB_ENABLE_MYSQL
 		case DB_TYPE_MYSQL:
 		{
+			char opt_reconnect = 1;
 			if (timeout_sec > 0) {
 				if (mysql_options(&handle->mysql.mysql, MYSQL_OPT_CONNECT_TIMEOUT, &timeout_sec)) {
 					handle->error_msg = mysql_error(&handle->mysql.mysql);
@@ -289,6 +290,10 @@ DB_RETURN dbConnect(DBHandle_t* handle, int timeout_sec) {
 			}
 			/* mysql_query(env->hEnv,"set names utf8"); */
 			if (mysql_set_character_set(&handle->mysql.mysql, "utf8")) {
+				handle->error_msg = mysql_error(&handle->mysql.mysql);
+				break;
+			}
+			if (mysql_options(&handle->mysql.mysql, MYSQL_OPT_RECONNECT, &opt_reconnect)) {
 				handle->error_msg = mysql_error(&handle->mysql.mysql);
 				break;
 			}
@@ -546,6 +551,9 @@ DBStmt_t* dbSQLPrepareExecute(DBHandle_t* handle, const char* sql, size_t sqllen
 		stmt->result_set_idx = 0;
 		stmt->idle = 0;
 		return stmt;
+	}
+	else {
+		handle->error_msg = stmt->error_msg;
 	}
 	return NULL;
 }
