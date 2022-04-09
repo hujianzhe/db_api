@@ -71,11 +71,8 @@ __declspec_dll void dbCleanEnv(const char* dbtype);
 __declspec_dll DB_RETURN dbAllocTls(void);
 __declspec_dll void dbFreeTls(void);
 /* handle */
-__declspec_dll struct DBHandle_t* dbCreateHandle(const char* dbtype);
+__declspec_dll struct DBHandle_t* dbOpenHandle(const char* dbtype, const char* ip, unsigned short port, const char* user, const char* pwd, const char* dbname);
 __declspec_dll void dbCloseHandle(struct DBHandle_t* handle);
-__declspec_dll DB_RETURN dbSetConnectArg(struct DBHandle_t* handle, const char* ip, unsigned short port, const char* user, const char* pwd, const char* dbname);
-__declspec_dll DB_RETURN dbConnect(struct DBHandle_t* handle, int timeout_sec);
-__declspec_dll DB_RETURN dbPing(struct DBHandle_t* handle);
 __declspec_dll const char* dbHandleErrorMessage(struct DBHandle_t* handle);
 /* transaction */
 __declspec_dll DB_RETURN dbEnableAutoCommit(struct DBHandle_t* handle, int bool_val);

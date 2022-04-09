@@ -30,7 +30,8 @@ enum {
 
 /* HANDLE */
 typedef struct DBHandle_t {
-	short type;
+	unsigned char type;
+	unsigned char inner_init_ok;
 	unsigned short port;
 	const char* user;
 	const char* pwd;
@@ -158,69 +159,17 @@ void dbFreeTls(void) {
 }
 
 /* handle */
-DBHandle_t* dbCreateHandle(const char* dbtype) {
-	int init_ok = 0;
-	DBHandle_t* handle = (DBHandle_t*)malloc(sizeof(DBHandle_t));
-	if (!handle) {
-		return NULL;
-	}
-	handle->type = dbname_to_dbtype(dbtype);
+static void db_init_handle(DBHandle_t* handle) {
 	handle->last_active_timestamp_sec = 0;
-	handle->url_strlen = 0;
-	handle->url = handle->user = handle->pwd = handle->ip = handle->db_name = NULL;
 	handle->error_msg = "";
 	handle->auto_commit = 0;
 	handle->trans_open = 0;
 	handle->stmts = NULL;
 	handle->stmt_cnt = 0;
-	switch (handle->type) {
-		#ifdef DB_ENABLE_MYSQL
-		case DB_TYPE_MYSQL:
-		{
-			if (!mysql_init(&handle->mysql.mysql)) {
-				break;
-			}
-			/* 
-			 * mysql_thread_init() is automatically called by mysql_init() 
-			 */
-			init_ok = 1;
-			break;
-		}
-		#endif
-	}
-	if (!init_ok) {
-		free(handle);
-		return NULL;
-	}
-	return handle;
+	handle->inner_init_ok = 0;
 }
 
-static void dbCloseStmt(DBStmt_t* stmt);
-void dbCloseHandle(DBHandle_t* handle) {
-	size_t i;
-	if (!handle) {
-		return;
-	}
-	free((void*)handle->url);
-
-	for (i = 0; i < handle->stmt_cnt; ++i) {
-		dbCloseStmt(handle->stmts[i]);
-	}
-	free(handle->stmts);
-
-	switch (handle->type) {
-		#ifdef DB_ENABLE_MYSQL
-		case DB_TYPE_MYSQL:
-		{
-			mysql_close(&handle->mysql.mysql);
-			break;
-		}
-		#endif
-	}
-	free(handle);
-}
-
-DB_RETURN dbSetConnectArg(DBHandle_t* handle, const char* ip, unsigned short port, const char* user, const char* pwd, const char* dbname) {
+static DBHandle_t* db_assign_url(DBHandle_t* handle, const char* ip, unsigned short port, const char* user, const char* pwd, const char* dbname) {
 	size_t schemalen, iplen, userlen, pwdlen, dbnamelen;
 	size_t url_strlen, arg_strlen;
 	char* url;
@@ -236,7 +185,7 @@ DB_RETURN dbSetConnectArg(DBHandle_t* handle, const char* ip, unsigned short por
 		#endif
 		default:
 		{
-			return DB_ERROR;
+			return NULL;
 		}
 	}
 	iplen = strlen(ip);
@@ -248,8 +197,7 @@ DB_RETURN dbSetConnectArg(DBHandle_t* handle, const char* ip, unsigned short por
 	arg_strlen = userlen + 1 + pwdlen + 1 + iplen + 1 + dbnamelen;
 	url = (char*)malloc(url_strlen + 1 + arg_strlen + 1);
 	if (!url) {
-		handle->error_msg = "no memory";
-		return DB_ERROR;
+		return NULL;
 	}
 	sprintf(url, "%s://%s:%s@%s:%u/%s", schema, user, pwd, ip, port, dbname);
 	url[url_strlen] = 0;
@@ -264,20 +212,86 @@ DB_RETURN dbSetConnectArg(DBHandle_t* handle, const char* ip, unsigned short por
 	handle->port = port;
 	handle->db_name = handle->ip + iplen + 1;
 	strcpy((char*)handle->db_name, dbname);
-	return DB_SUCCESS;
+	return handle;
 }
 
-DB_RETURN dbConnect(DBHandle_t* handle, int timeout_sec) {
+DBHandle_t* dbOpenHandle(const char* dbtype, const char* ip, unsigned short port, const char* user, const char* pwd, const char* dbname) {
+	DBHandle_t* handle;
+	int handle_type = dbname_to_dbtype(dbtype);
+	if (DB_TYPE_RESERVED == handle_type) {
+		return NULL;
+	}
+	handle = (DBHandle_t*)malloc(sizeof(DBHandle_t));
+	if (!handle) {
+		return NULL;
+	}
+	handle->type = handle_type;
+	if (!db_assign_url(handle, ip, port, user, pwd, dbname)) {
+		free(handle);
+		return NULL;
+	}
+	db_init_handle(handle);
+	return handle;
+}
+
+static void dbCloseStmt(DBStmt_t* stmt);
+static void db_free_inner_resources(DBHandle_t* handle) {
+	size_t i;
+	if (!handle->inner_init_ok) {
+		return;
+	}
+	handle->inner_init_ok = 0;
+	for (i = 0; i < handle->stmt_cnt; ++i) {
+		dbCloseStmt(handle->stmts[i]);
+	}
+	free(handle->stmts);
+	switch (handle->type) {
+		#ifdef DB_ENABLE_MYSQL
+		case DB_TYPE_MYSQL:
+		{
+			mysql_close(&handle->mysql.mysql);
+			break;
+		}
+		#endif
+	}
+}
+void dbCloseHandle(DBHandle_t* handle) {
+	if (!handle) {
+		return;
+	}
+	db_free_inner_resources(handle);
+	free((void*)handle->url);
+	free(handle);
+}
+
+static DB_RETURN db_connect(DBHandle_t* handle, int timeout_sec) {
 	DB_RETURN res;
 	if (handle->last_active_timestamp_sec != 0) {
-		return DB_SUCCESS;
+		time_t cur_sec = time(NULL);
+		if (handle->last_active_timestamp_sec <= cur_sec &&
+			handle->last_active_timestamp_sec + 3600 > cur_sec)
+		{
+			return DB_SUCCESS;
+		}
+		db_free_inner_resources(handle);
+		db_init_handle(handle);
 	}
 	res = DB_ERROR;
 	switch (handle->type) {
 		#ifdef DB_ENABLE_MYSQL
 		case DB_TYPE_MYSQL:
 		{
-			char opt_reconnect = 1;
+			// char opt_reconnect = 1;
+			if (!handle->inner_init_ok) {
+				if (!mysql_init(&handle->mysql.mysql)) {
+					handle->error_msg = "mysql_init api error";
+					break;
+				}
+				handle->inner_init_ok = 1;
+			}
+			/* 
+			 * mysql_thread_init() is automatically called by mysql_init() 
+			 */
 			if (timeout_sec > 0) {
 				if (mysql_options(&handle->mysql.mysql, MYSQL_OPT_CONNECT_TIMEOUT, &timeout_sec)) {
 					handle->error_msg = mysql_error(&handle->mysql.mysql);
@@ -293,10 +307,12 @@ DB_RETURN dbConnect(DBHandle_t* handle, int timeout_sec) {
 				handle->error_msg = mysql_error(&handle->mysql.mysql);
 				break;
 			}
+			/*
 			if (mysql_options(&handle->mysql.mysql, MYSQL_OPT_RECONNECT, &opt_reconnect)) {
 				handle->error_msg = mysql_error(&handle->mysql.mysql);
 				break;
 			}
+			*/
 			res = DB_SUCCESS;
 			break;
 		}
@@ -304,25 +320,6 @@ DB_RETURN dbConnect(DBHandle_t* handle, int timeout_sec) {
 	}
 	if (DB_SUCCESS == res) {
 		handle->last_active_timestamp_sec = time(NULL);
-	}
-	return res;
-}
-
-DB_RETURN dbPing(DBHandle_t* handle) {
-	DB_RETURN res = DB_ERROR;
-	switch (handle->type) {
-		#ifdef DB_ENABLE_MYSQL
-		case DB_TYPE_MYSQL:
-		{
-			if (mysql_ping(&handle->mysql.mysql)) {
-				handle->error_msg = mysql_error(&handle->mysql.mysql);
-				break;
-			}
-			handle->last_active_timestamp_sec = time(NULL);
-			res = DB_SUCCESS;
-			break;
-		}
-		#endif
 	}
 	return res;
 }
@@ -339,6 +336,9 @@ DB_RETURN dbEnableAutoCommit(DBHandle_t* handle, int bool_val) {
 	}
 	if (!handle->auto_commit && !bool_val) {
 		return DB_SUCCESS;
+	}
+	if (db_connect(handle, 3000) == DB_ERROR) {
+		return DB_ERROR;
 	}
 	switch (handle->type) {
 		#ifdef DB_ENABLE_MYSQL
@@ -363,6 +363,9 @@ DB_RETURN dbStartTransaction(DBHandle_t* handle) {
 	DB_RETURN res = DB_ERROR;
 	if (handle->trans_open) {
 		return DB_SUCCESS;
+	}
+	if (db_connect(handle, 3000) == DB_ERROR) {
+		return DB_ERROR;
 	}
 	switch (handle->type) {
 		#ifdef DB_ENABLE_MYSQL
@@ -491,6 +494,9 @@ const char* dbStmtErrorMessage(DBStmt_t* stmt) {
 
 DBStmt_t* dbSQLPrepareExecute(DBHandle_t* handle, const char* sql, size_t sqllen, DBExecuteParam_t* param, unsigned short paramcnt) {
 	DB_RETURN res = DB_ERROR;
+	if (db_connect(handle, 3000) == DB_ERROR) {
+		return NULL;
+	}
 	DBStmt_t* stmt = dbAllocStmt(handle);
 	if (!stmt) {
 		return NULL;
