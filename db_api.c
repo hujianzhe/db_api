@@ -226,6 +226,12 @@ DBHandle_t* dbOpenHandle(const char* dbtype, const char* ip, unsigned short port
 		return NULL;
 	}
 	handle->type = handle_type;
+	if (!pwd) {
+		pwd = "";
+	}
+	if (!dbname) {
+		dbname = "";
+	}
 	if (!db_assign_url(handle, ip, port, user, pwd, dbname)) {
 		free(handle);
 		return NULL;
