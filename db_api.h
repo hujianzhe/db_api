@@ -33,6 +33,7 @@ typedef enum DB_RETURN {
 } DB_RETURN;
 
 enum {
+	DB_FIELD_TYPE_UNKNOWN = -1,
 	DB_FIELD_TYPE_TINY,
 	DB_FIELD_TYPE_SMALLINT,
 	DB_FIELD_TYPE_INT,
@@ -61,6 +62,13 @@ typedef struct DBExecuteParam_t {
 	size_t buffer_length;
 } DBExecuteParam_t;
 
+typedef struct DBFieldMetaData_t {
+	int type;
+	size_t length;
+	const char* name;
+	size_t name_length;
+} DBFieldMetaData_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -84,11 +92,14 @@ __declspec_dll int dbSQLIsSelect(const char* sql, size_t sqllen);
 __declspec_dll struct DBStmt_t* dbSQLPrepareExecute(struct DBHandle_t* handle, const char* sql, size_t sqllen, DBExecuteParam_t* param, unsigned short paramcnt);
 __declspec_dll const char* dbStmtErrorMessage(struct DBStmt_t* stmt);
 /* result set */
+/* ret < 0 err, == 0 no result, > 0 has result */
 __declspec_dll void dbFreeResult(struct DBStmt_t* stmt);
 __declspec_dll long long dbAutoIncrementValue(struct DBStmt_t* stmt);
 __declspec_dll long long dbAffectedRows(struct DBStmt_t* stmt);
 /* ret < 0 err, == 0 no data, > 0 has data */
 __declspec_dll int dbFetchResult(struct DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcnt);
+__declspec_dll unsigned short dbResultFieldCount(struct DBStmt_t* stmt);
+__declspec_dll unsigned short dbResultFieldMetaDatas(struct DBStmt_t* stmt, DBFieldMetaData_t* metas, unsigned short n);
 
 #ifdef __cplusplus
 }

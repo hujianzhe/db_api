@@ -60,7 +60,8 @@ typedef struct DBStmt_t {
 	short type;
 	short idle;
 	const char* error_msg;
-	short has_result_set;
+	char has_result_set;
+	char get_result_set_ret;
 	short result_set_idx;
 	union {
 		char reserved[1];
@@ -109,6 +110,35 @@ static MYSQL_TIME* tm2mysqltime(const struct tm* tm, MYSQL_TIME* mt) {
 	mt->second_part = 0;
 	mt->time_type = MYSQL_TIMESTAMP_DATETIME;
 	return mt;
+}
+
+static int mysql_type_to_utype(int mysql_field_type) {
+	switch (mysql_field_type) {
+		case MYSQL_TYPE_TINY:
+			return DB_FIELD_TYPE_TINY;
+
+		case MYSQL_TYPE_SHORT:
+			return DB_FIELD_TYPE_SMALLINT;
+
+		case MYSQL_TYPE_LONG:
+			return DB_FIELD_TYPE_INT;
+
+		case MYSQL_TYPE_LONGLONG:
+			return DB_FIELD_TYPE_BIGINT;
+
+		case MYSQL_TYPE_FLOAT:
+			return DB_FIELD_TYPE_FLOAT;
+
+		case MYSQL_TYPE_DOUBLE:
+			return DB_FIELD_TYPE_DOUBLE;
+
+		case MYSQL_TYPE_VAR_STRING:
+			return DB_FIELD_TYPE_VARCHAR;
+
+		case MYSQL_TYPE_BLOB:
+			return DB_FIELD_TYPE_BLOB;
+	}
+	return DB_FIELD_TYPE_UNKNOWN;
 }
 #endif
 
@@ -485,6 +515,7 @@ static DBStmt_t* dbAllocStmt(DBHandle_t* handle) {
 		stmt->idle = 1;
 		stmt->error_msg = "";
 		stmt->has_result_set = 0;
+		stmt->get_result_set_ret = 0;
 		stmt->result_set_idx = 0;
 		handle->stmts[handle->stmt_cnt] = stmt;
 		handle->stmt_cnt += 1;
@@ -567,6 +598,7 @@ DBStmt_t* dbSQLPrepareExecute(DBHandle_t* handle, const char* sql, size_t sqllen
 	}
 	if (DB_SUCCESS == res) {
 		stmt->has_result_set = 0;
+		stmt->get_result_set_ret = 0;
 		stmt->result_set_idx = 0;
 		stmt->idle = 0;
 		return stmt;
@@ -614,6 +646,12 @@ long long dbAffectedRows(DBStmt_t* stmt) {
 
 static int dbGetResult(DBStmt_t* stmt) {
 	int res = -1;
+
+	if (stmt->has_result_set) {
+		return stmt->get_result_set_ret;
+	}
+	stmt->has_result_set = 1;
+
 	switch (stmt->type) {
 		#ifdef DB_ENABLE_MYSQL
 		case DB_TYPE_MYSQL:
@@ -673,23 +711,65 @@ static int dbGetResult(DBStmt_t* stmt) {
 	if (res >= 0) {
 		stmt->result_set_idx++;
 	}
+	stmt->get_result_set_ret = res;
     return res;
 }
 
+unsigned short dbResultFieldCount(struct DBStmt_t* stmt) {
+	unsigned short count = 0;
+	switch (stmt->type) {
+		#ifdef DB_ENABLE_MYSQL
+		case DB_TYPE_MYSQL:
+		{
+			int ret = dbGetResult(stmt);
+			if (ret <= 0) {
+				break;
+			}
+			return stmt->mysql.result_field_count;
+		}
+		#endif
+	}
+	return count;
+}
+
+unsigned short dbResultFieldMetaDatas(struct DBStmt_t* stmt, DBFieldMetaData_t* metas, unsigned short n) {
+	unsigned short count = 0;
+	switch (stmt->type) {
+		#ifdef DB_ENABLE_MYSQL
+		case DB_TYPE_MYSQL:
+		{
+			unsigned short i;
+			int ret = dbGetResult(stmt);
+			if (ret <= 0) {
+				break;
+			}
+			if (!stmt->mysql.result_field_meta) {
+				break;
+			}
+			for (i = 0; i < n; ++i) {
+				MYSQL_FIELD* field = mysql_fetch_field(stmt->mysql.result_field_meta);
+				if (!field) {
+					break;
+				}
+				metas[count].type = mysql_type_to_utype(field->type);
+				metas[count].length = field->length;
+				metas[count].name = field->name;
+				metas[count].name_length = field->name_length;
+				++count;
+			}
+			break;
+		}
+		#endif
+	}
+	return count;
+}
+
 int dbFetchResult(DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcnt) {
-	int res = -1;
-	do {
-		if (stmt->has_result_set) {
-			break;
-		}
-		res = dbGetResult(stmt);
-		if (res > 0) {
-			stmt->has_result_set = 1;
-			res = -1;
-			break;
-		}
+	int res = dbGetResult(stmt);
+	if (res <= 0) {
 		return res;
-	} while (0);
+	}
+	res = -1;
 
 	switch (stmt->type) {
 		#ifdef DB_ENABLE_MYSQL
@@ -698,6 +778,7 @@ int dbFetchResult(DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcn
 			/* bind result param */
 			if (stmt->mysql.result_field_count) {
 				unsigned short i;
+				mysql_field_seek(stmt->mysql.result_field_meta, 0);
 				for (i = 0; i < paramcnt && i < stmt->mysql.result_field_count; ++i) {
 					MYSQL_FIELD* field = mysql_fetch_field(stmt->mysql.result_field_meta);
 					if (field) {
@@ -751,6 +832,7 @@ void dbFreeResult(DBStmt_t* stmt) {
 	}
 	if (stmt->has_result_set) {
 		stmt->has_result_set = 0;
+		stmt->get_result_set_ret = 0;
 		switch (stmt->type) {
 			#ifdef DB_ENABLE_MYSQL
 			case DB_TYPE_MYSQL:
