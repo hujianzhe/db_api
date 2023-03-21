@@ -492,6 +492,13 @@ const char* dbStmtErrorMessage(DBStmt_t* stmt) {
 	return stmt->error_msg;
 }
 
+int dbSQLIsSelect(const char* sql, size_t sqllen) {
+	if (sqllen < 6) {
+		return 0;
+	}
+	return !memcmp(sql, "select", 6) || !memcmp(sql, "SELECT", 6);
+}
+
 DBStmt_t* dbSQLPrepareExecute(DBHandle_t* handle, const char* sql, size_t sqllen, DBExecuteParam_t* param, unsigned short paramcnt) {
 	DB_RETURN res = DB_ERROR;
 	if (db_connect(handle, 3000) == DB_ERROR) {
