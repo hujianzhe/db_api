@@ -91,6 +91,8 @@ __declspec_dll DB_RETURN dbRollback(struct DBHandle_t* handle);
 __declspec_dll int dbSQLIsSelect(const char* sql, size_t sqllen);
 __declspec_dll struct DBStmt_t* dbSQLPrepareExecute(struct DBHandle_t* handle, const char* sql, size_t sqllen, DBExecuteParam_t* param, unsigned short paramcnt);
 __declspec_dll const char* dbStmtErrorMessage(struct DBStmt_t* stmt);
+__declspec_dll unsigned int dbStmtSQLErrno(struct DBStmt_t* stmt);
+__declspec_dll const char* dbStmtSQLState(struct DBStmt_t* stmt);
 /* result set */
 __declspec_dll void dbFreeResult(struct DBStmt_t* stmt);
 __declspec_dll long long dbAutoIncrementValue(struct DBStmt_t* stmt);

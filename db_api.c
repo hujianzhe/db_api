@@ -529,6 +529,26 @@ const char* dbStmtErrorMessage(DBStmt_t* stmt) {
 	return stmt->error_msg;
 }
 
+unsigned int dbStmtSQLErrno(DBStmt_t* stmt) {
+	switch (stmt->type) {
+		#ifdef DB_ENABLE_MYSQL
+		case DB_TYPE_MYSQL:
+			return mysql_stmt_errno(stmt->mysql.stmt);
+		#endif
+	}
+	return 0;
+}
+
+const char* dbStmtSQLState(DBStmt_t* stmt) {
+	switch (stmt->type) {
+		#ifdef DB_ENABLE_MYSQL
+		case DB_TYPE_MYSQL:
+			return mysql_stmt_sqlstate(stmt->mysql.stmt);
+		#endif
+	}
+	return NULL;
+}
+
 int dbSQLIsSelect(const char* sql, size_t sqllen) {
 	if (sqllen < 6) {
 		return 0;
