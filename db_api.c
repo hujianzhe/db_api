@@ -806,8 +806,8 @@ int dbFetchResult(DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcn
 						bind->buffer_type = field->type;
 						bind->buffer = param[i].buffer;
 						bind->buffer_length = (unsigned long)(param[i].buffer_length);
-						if (param[i].value_length) {
-							*param[i].value_length = 0;
+						if (param[i].ptr_value_length) {
+							*param[i].ptr_value_length = 0;
 							bind->length = &param[i].mysql_value_length;
 						}
 					}
@@ -825,8 +825,8 @@ int dbFetchResult(DBStmt_t* stmt, DBResultParam_t* param, unsigned short paramcn
 				{
 					unsigned short i;
 					for (i = 0; i < paramcnt && i < stmt->mysql.result_field_count; ++i) {
-						if (param[i].value_length) {
-							*param[i].value_length = param[i].mysql_value_length;
+						if (param[i].ptr_value_length) {
+							*param[i].ptr_value_length = param[i].mysql_value_length;
 						}
 					}
 					res = 1;

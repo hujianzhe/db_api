@@ -47,19 +47,31 @@ enum {
 struct DBHandle_t;
 struct DBStmt_t;
 
+typedef union DBSQLNum_t {
+	int8_t value_tinyint;
+	int16_t value_smallint;
+	int32_t value_int;
+	int64_t value_bigint;
+	float value_float;
+	double value_double;
+} DBSQLNum_t;
+
 typedef struct DBResultParam_t {
 	void* buffer;
 	size_t buffer_length;
-	size_t* value_length;
+	size_t* ptr_value_length;
 	union {
 		unsigned long mysql_value_length;
 	};
+	size_t value_length;
+	DBSQLNum_t num;
 } DBResultParam_t;
 
 typedef struct DBExecuteParam_t {
 	int field_type;
 	const void* buffer;
 	size_t buffer_length;
+	DBSQLNum_t num;
 } DBExecuteParam_t;
 
 typedef struct DBFieldMetaData_t {
