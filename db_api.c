@@ -339,9 +339,11 @@ static DB_RETURN db_connect(DBHandle_t* handle, int timeout_sec) {
 				break;
 			}
 			/* mysql_query(env->hEnv,"set names utf8"); */
-			if (mysql_set_character_set(&handle->mysql.mysql, "utf8")) {
-				handle->error_msg = mysql_error(&handle->mysql.mysql);
-				break;
+			if (mysql_set_character_set(&handle->mysql.mysql, "utf8mb4")) {
+				if (mysql_set_character_set(&handle->mysql.mysql, "utf8")) {
+					handle->error_msg = mysql_error(&handle->mysql.mysql);
+					break;
+				}
 			}
 			/*
 			if (mysql_options(&handle->mysql.mysql, MYSQL_OPT_RECONNECT, &opt_reconnect)) {
