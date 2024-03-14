@@ -20,7 +20,11 @@
 		#define	_REENTRANT
 	#endif
 	#ifndef	__declspec_dll
-		#define	__declspec_dll
+		#ifdef	DECLSPEC_DLL_EXPORT
+			#define	__declspec_dll						__attribute__((visibility("default")))
+		#else
+			#define	__declspec_dll
+		#endif
 	#endif
 #endif
 

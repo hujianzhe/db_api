@@ -2,12 +2,13 @@ SOURCE_C_FILE += $(shell find . -name "*.c")
 SOURCE_CPP_FILE += $(shell find . -name "*.cpp")
 
 TARGET_PATH += .
-COMPILE_OPTION := -fPIC -shared -Wno-deprecated -Wno-parentheses
+COMPILE_OPTION := -fPIC -shared -fvisibility=hidden -Wno-deprecated -Wno-parentheses
 INCLUDE_PATH :=
-MACRO := -D_REENTRANT
+MACRO := -D_REENTRANT -DDECLSPEC_DLL_EXPORT
 
-MYSQL_INCLUDE := -I/opt/homebrew/include/
-MYSQL_LINK := -L/opt/homebrew/lib/ -lmysqlclient
+#MYSQL_INCLUDE := -I/opt/homebrew/include/
+#MYSQL_LINK := -L/opt/homebrew/lib/ -lmysqlclient
+MYSQL_LINK := -L/usr/lib64/mysql -lmysqlclient
 ifdef MYSQL_LINK
 INCLUDE_PATH += $(MYSQL_INCLUDE)
 MACRO += -DDB_ENABLE_MYSQL
