@@ -605,6 +605,7 @@ DBStmt_t* dbSQLPrepareExecute(DBHandle_t* handle, const char* sql, size_t sqllen
 
 				if (mysql_stmt_execute(stmt->mysql.stmt)) {
 					free(exec_params);
+					stmt->error_msg = mysql_stmt_error(stmt->mysql.stmt);
 					break;
 				}
 				free(exec_params);
