@@ -3,7 +3,7 @@ OBJECT_FILE=`find . -name "*.o"`
 SOURCE_C_FILE=`find . -name "*.c"`
 SOURCE_CPP_FILE=`find . -name "*.cpp"`
 MACRO="-D_REENTRANT -DDB_ENABLE_MYSQL"
-COMPILE_OPTION="-Wno-deprecated -Wno-parentheses -pthread"
+COMPILE_OPTION="-Wno-deprecated -Wno-parentheses -Wno-unused-result -Wreturn-type -fno-strict-aliasing -pthread"
 INCLUDE_PATH="-I/opt/homebrew/include/"
 
 COMPILER="gcc"
@@ -17,6 +17,10 @@ elif [ $1 == "debug" ];then
 	MACRO="-D_DEBUG $MACRO"
 	COMPILE_OPTION="-g $COMPILE_OPTION"
 	TARGET="libDBApiStaticDebug.a"
+elif [ $1 == "asan" ];then
+	MACRO="-D_DEBUG $MACRO"
+	COMPILE_OPTION="-g -fsanitize=address $COMPILE_OPTION"
+	TARGET="libDBApiStaticAsan.a"
 elif [ $1 == "release" ];then
 	MACRO="-DNDEBUG $MACRO"
 	COMPILE_OPTION="-O1 $COMPILE_OPTION"
